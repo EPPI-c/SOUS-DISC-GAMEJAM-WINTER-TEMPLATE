@@ -20,6 +20,25 @@ local ui = {}
 ---@param position number number to determine the position in the list of the button in navigatable list
 ---@param click_time number time in seconds of clicked stated
 ---returns a button
+
+function ui.createButtonDraw(text, textcolor, normalcolor, selectedcolor, clickedcolor)
+    return function(x, y, xs, ys, state)
+	local color
+	if state == 'selected' then
+	    color = selectedcolor
+	elseif state == 'clicked' then
+	    color = clickedcolor
+	else
+	    color = normalcolor
+	end
+	love.graphics.setColor(color)
+        love.graphics.rectangle('fill', x, y, xs, ys)
+
+	love.graphics.setColor(textcolor)
+	love.graphics.printf(text, x, y, xs, 'center')
+    end
+end
+
 function ui.createButton(xp, yp, xs, ys, drawfunction, onclicked, position, click_time)
     ---@class button: Navigatable
     local button = {
@@ -40,7 +59,7 @@ function ui.createButton(xp, yp, xs, ys, drawfunction, onclicked, position, clic
     ---executes the onclicked function
     function button:click()
         self.state = 'clicked'
-        self.clicked_timer = click_time
+        self.clicked_timer = self.click_time
         onclicked()
     end
 
@@ -144,35 +163,17 @@ function ui.createKeyBoardNavigation(items)
         end
     end
 
-    function KeyboardNavigator:update(dt)
-        local x, y = love.mouse.getPosition()
+    function KeyboardNavigator:mousemoved(x, y)
         for k, button in pairs(self.items) do
             if button:checkHit(x, y) then
                 self.selected = k
             end
         end
-        love.keyboard.isDown('j')
-        if key == 'j' and not isrepeat then
-            print('j')
-            local x = self:next()
-            assert(x)
-            print(x.state)
-            x.state = 'selected'
-            print(x.state)
-        elseif key == 'k' and not isrepeat then
-            print('k')
-            self:previous().state = 'selected'
-        elseif key == 'space' and not isrepeat then
-            print('space')
-            if #self.items == 0 then
-                return nil
-            elseif not self.selected then
-                self.selected = 1
-            end
-            self:current().click()
-        end
+    end
+
+    function KeyboardNavigator:update(dt)
         for k, button in pairs(self.items) do
-            button:update(x, y, dt, true)
+            button:update(dt)
             if button.state ~= 'clicked' then
                 if k == self.selected then
                     button.state = 'selected'
@@ -183,7 +184,21 @@ function ui.createKeyBoardNavigation(items)
         end
     end
 
-    function KeyboardNavigator:keyreleased(key, isrepeat)
+    function KeyboardNavigator:key(key, isrepeat)
+        if (key == 'down' or key == 'right' or key == 'j') and not isrepeat then
+            self:next()
+        elseif (key == 'up' or key == 'left' or key == 'k') and not isrepeat then
+            self:previous()
+        elseif key == 'space' and not isrepeat then
+            if #self.items == 0 then
+                return nil
+            elseif not self.selected then
+                self.selected = 1
+            end
+            local c = self:current()
+	    print(c.position)
+	    c:click()
+        end
     end
 
     function KeyboardNavigator:checkHit(x, y)
@@ -243,7 +258,6 @@ function ui.createKeyBoardNavigation(items)
     ---gets next item of the position list
     function KeyboardNavigator:next()
         if #self.items == 0 then
-            print('no items')
             return nil
         elseif not self.selected then
             self.selected = 1
