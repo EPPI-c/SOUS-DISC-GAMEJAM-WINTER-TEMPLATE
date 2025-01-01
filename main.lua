@@ -1,20 +1,24 @@
 local sm = require("state")
 local gameState = require("game")
+local menuState = require("menu")
 
 function love.load()
-	sm:changestate(gameState, nil)
+    menuState:init()
+    sm:changestate(menuState, nil)
+	ScreenAreaWidth = love.graphics.getWidth()
+	ScreenAreaHeight = love.graphics.getHeight()
 end
 
 function love.update(dt)
 	sm.state:update(dt)
 end
 
-function love.keypressed(key, scancode)
-	sm.state:keypressed(key, scancode)
+function love.keypressed(key, scancode, isrepeat)
+	sm.state:keypressed(key, scancode, isrepeat)
 end
 
-function love.keyreleased(key, scancode)
-	sm.state:keypressed(key, scancode)
+function love.keyreleased(key, scancode, isrepeat)
+	sm.state:keypressed(key, scancode, isrepeat)
 end
 
 function love.mousepressed(x, y, button, istouch, presses)
