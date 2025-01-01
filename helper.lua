@@ -1,5 +1,4 @@
 local ui = {}
--- TODO: test when nothing selected
 
 ---base class for navigatable items
 ---@class Navigatable
@@ -133,13 +132,13 @@ function ui.createKeyBoardNavigation(items)
 		end
 		local index = table.search(self.items, item)
 		assert(index)
-		table.remove(items, index)
+		table.remove(self.items, index)
 		index = table.search(self.itemsx, item)
 		assert(index)
-		table.remove(itemsx, index)
+		table.remove(self.itemsx, index)
 		index = table.search(self.itemsy, item)
 		assert(index)
-		table.remove(itemsy, index)
+		table.remove(self.itemsy, index)
 	end
 
 	---gets next item of the position list
@@ -277,6 +276,18 @@ local button3 = ui.createButton(2,4,1,1,function () end,function()end,40,false)
 local button4 = ui.createButton(1,5,1,1,function () end,function()end,30,false)
 
 local navigator = ui.createKeyBoardNavigation({button, button2, button3, button4})
+for _, v in pairs(navigator.items) do
+	print(v.position)
+end
+print()
 navigator:add(button1)
+for _, v in pairs(navigator.items) do
+	print(v.position)
+end
+print()
+navigator:remove(button1)
+for _, v in pairs(navigator.items) do
+	print(v.position)
+end
 
 return ui
