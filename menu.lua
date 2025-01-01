@@ -1,4 +1,4 @@
-local ui = require "helper"
+local ui = require "ui"
 local M = {}
 
 function M:init(sm, Game_state)
