@@ -1127,16 +1127,7 @@ function streets.create_manager(width, height, seed)
         return self.streets[x][y]
     end
 
-    function M:generate(i, j, max_iter, iter)
-        if not max_iter then
-            max_iter = 3
-        end
-        if not iter then
-            iter = 0
-        end
-        if iter > max_iter then
-            return
-        end
+    function M:generate(i, j)
         -- this if is wrong
         -- want to check if the last generated street is out of the screen and stop must be
         -- completely out of screen i and j are the upper right corner coordinate
@@ -1160,8 +1151,8 @@ function streets.create_manager(width, height, seed)
                 ---@diagnostic disable-next-line: redefined-local
                 local street = street.piecesdown[math.random(optionsDown)](i, j, self.width, self.height)
                 self:add_street(i, j, street)
+                self:generate(i, j)
             end
-            self:generate(i, j, max_iter, iter + 1)
         end
         if optionsUp > 0 then
             ---@diagnostic disable-next-line: redefined-local
@@ -1171,8 +1162,8 @@ function streets.create_manager(width, height, seed)
                 local street = street.piecesup[math.random(optionsUp)](i, j, self.width,
                     self.height)
                 self:add_street(i, j, street)
+                self:generate(i, j)
             end
-            self:generate(i, j, max_iter, iter + 1)
         end
         if optionsLeft > 0 then
             ---@diagnostic disable-next-line: redefined-local
@@ -1182,8 +1173,8 @@ function streets.create_manager(width, height, seed)
                 local street = street.piecesleft[math.random(optionsLeft)](i, j, self.width,
                     self.height)
                 self:add_street(i, j, street)
+                self:generate(i, j)
             end
-            self:generate(i, j, max_iter, iter + 1)
         end
         if optionsRight > 0 then
             ---@diagnostic disable-next-line: redefined-local
@@ -1193,27 +1184,37 @@ function streets.create_manager(width, height, seed)
                 local street = street.piecesright[math.random(optionsRight)](i, j, self.width,
                     self.height)
                 self:add_street(i, j, street)
+                self:generate(i, j)
             end
-            self:generate(i, j, max_iter, iter + 1)
         end
         -- love.event.quit()
     end
 
     function M:getExtremes(x, y)
-        local halfx = ScreenAreaWidth * 2
-        local halfy = ScreenAreaHeight
-        self.extremeLeft = x - halfx
-        self.extremeRight = x + halfx
-        self.extremeUp = y - halfy
-        self.extremeDown = y + halfy
-        print('x', x, 'y', y)
-        print('extremeLeft', self.extremeLeft)
-        print('extremeRight', self.extremeRight)
-        print('extremeUp', self.extremeUp)
-        print('extremeDown', self.extremeDown)
+        local halfx = ScreenAreaWidth / 2
+        local halfy = ScreenAreaHeight / 2
+        self.extremeLeft = x - ScreenAreaWidth
+        self.extremeRight = x + ScreenAreaWidth
+        self.extremeUp = y - ScreenAreaHeight
+        self.extremeDown = y + ScreenAreaHeight
+        self.moderateLeft = x - halfx
+        self.moderateRight = x + halfx
+        self.moderateUp = y - halfy
+        self.moderateDown = y + halfy
     end
 
     function M:getExtremeStreets()
+        self.extremeLStreet = math.floor(self.extremeLeft / self.width) * self.width
+        self.extremeRStreet = math.ceil(self.extremeRight / self.width) * self.width
+        self.extremeUStreet = math.floor(self.extremeUp / self.height) * self.height
+        self.extremeDStreet = math.ceil(self.extremeDown / self.height) * self.height
+        self.moderateLStreet = math.floor(self.moderateLeft / self.width) * self.width
+        self.moderateRStreet = math.ceil(self.moderateRight / self.width) * self.width
+        self.moderateUStreet = math.floor(self.moderateUp / self.height) * self.height
+        self.moderateDStreet = math.ceil(self.moderateDown / self.height) * self.height
+    end
+
+    function M:getModerateStreets()
         self.extremeLStreet = math.floor(self.extremeLeft / self.width) * self.width
         self.extremeRStreet = math.ceil(self.extremeRight / self.width) * self.width
         self.extremeUStreet = math.floor(self.extremeUp / self.height) * self.height
@@ -1239,7 +1240,16 @@ function streets.create_manager(width, height, seed)
         self:getExtremeStreets()
         ---@diagnostic disable-next-line: redefined-local
         local x, y = self:getStreet(x, y)
-        self:generate(x, y)
+        self:generate(x, y) -- start in center
+        for i = self.extremeLStreet, self.extremeRStreet, self.width do
+            for j = self.extremeUStreet, self.extremeDStreet, self.height do
+                if i ~= x or y ~= j then -- skip center
+                    if self:access(i, j) then
+                        self:generate(i, j)
+                    end
+                end
+            end
+        end
     end
 
     ---@param hitbox Hitbox
@@ -1251,15 +1261,19 @@ function streets.create_manager(width, height, seed)
                 return true
             end
         end
-        if self.streets[x][y]:check_collision(hitbox) then
-            return true
+        if self:access(x, y) then
+            if self.streets[x][y]:check_collision(hitbox) then
+                return true
+            end
+        else
+            return true -- if not generated block movement
         end
         return false
     end
 
     function M:draw()
-        for i = self.extremeLStreet, self.extremeRStreet, self.width do
-            for j = self.extremeUStreet, self.extremeDStreet, self.height do
+        for i = self.moderateLStreet, self.moderateRStreet, self.width do
+            for j = self.moderateUStreet, self.moderateDStreet, self.height do
                 if self:access(i, j) then
                     self.streets[i][j]:draw()
                 end
