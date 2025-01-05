@@ -195,7 +195,6 @@ function ui.createKeyBoardNavigation(items)
                 self.selected = 1
             end
             local c = self:current()
-	    print(c.position)
 	    c:click()
         end
     end
