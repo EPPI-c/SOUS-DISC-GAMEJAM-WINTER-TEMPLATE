@@ -1,4 +1,5 @@
 local helper = require 'helper'
+local person = require 'person'
 
 local streets = {}
 
@@ -1095,6 +1096,7 @@ function streets.create_manager(width, height, seed)
         width = width,
         height = height,
         streets = streets_table,
+        victims = {},
         pieces = {
             streets.create_Tintersection_down,
             streets.create_Tintersection_left,
@@ -1118,6 +1120,10 @@ function streets.create_manager(width, height, seed)
             return
         end
         self.streets[x][y] = street
+        if math.random(4) == 1 then
+            local victim = person.create_Person(x + self.width / 2, y + self.height / 2, { 1, .3, .3 }, 200, 2000, 0.2)
+            table.insert(self.victims, victim)
+        end
     end
 
     function M:access(x, y)
@@ -1221,18 +1227,19 @@ function streets.create_manager(width, height, seed)
         self.extremeDStreet = math.ceil(self.extremeDown / self.height) * self.height
     end
 
+    --- get coordinates of the street tile x and y are in
+    ---@param x number
+    ---@param y number
+    ---@return number, number
     function M:getStreet(x, y)
-        if x > 0 then
-            x = math.floor(x / self.width)
-        else
-            x = math.floor(x / self.width)
-        end
-        if y > 0 then
-            y = math.floor(y / self.height)
-        else
-            y = math.floor(y / self.height)
-        end
+        x = math.floor(x / self.width)
+        y = math.floor(y / self.height)
         return x * self.width, y * self.height
+    end
+
+    function M:getCenter(x, y)
+        x, y = self:getStreet(x, y)
+        return x + self.width / 2, y + self.height / 2
     end
 
     function M:update(x, y)
@@ -1257,8 +1264,10 @@ function streets.create_manager(width, height, seed)
         local x, y = self:getStreet(hitbox.topLeft.x, hitbox.topLeft.y)
         local x1, y1 = self:getStreet(hitbox.bottomRight.x, hitbox.bottomRight.y)
         if x ~= x1 or y ~= y1 then
-            if self.streets[x1][y1]:check_collision(hitbox) then
-                return true
+            if self:access(x, y) then
+                if self.streets[x1][y1]:check_collision(hitbox) then
+                    return true
+                end
             end
         end
         if self:access(x, y) then
@@ -1278,6 +1287,9 @@ function streets.create_manager(width, height, seed)
                     self.streets[i][j]:draw()
                 end
             end
+        end
+        for _, victim in pairs(self.victims) do
+            victim:draw()
         end
     end
 

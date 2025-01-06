@@ -1,8 +1,12 @@
 local sm = require("state")
 local gameState = require("game")
 local menuState = require("menu")
+local helper = require('helper')
 
 function love.load()
+    HsFile = "highscore.txt"
+    Stats = helper.loadHighScore(HsFile)
+
     ScreenAreaWidth = love.graphics.getWidth()
     ScreenAreaHeight = love.graphics.getHeight()
     gameState:init(sm, menuState)

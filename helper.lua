@@ -61,4 +61,79 @@ function M.create_hitbox(coord1, coord2)
     return hitbox
 end
 
+function M.split(s, delimiter)
+    delimiter = delimiter or '%s'
+    local t = {}
+    local i = 1
+    for str in string.gmatch(s, '([^' .. delimiter .. ']+)') do
+        t[i] = str
+        i = i + 1
+    end
+    return t
+end
+
+function M.create_stats()
+    local types = {'score', 'friendlyfire', 'dodged', 'dashed', 'shot', 'secondsalive', 'deaths'}
+    local stats = {
+        game = {},
+        high = {},
+        sum = {},
+    }
+    for _, v in pairs(types) do
+        stats.game[v] = 0
+        stats.high[v] = 0
+        stats.sum[v] = 0
+    end
+    function stats:update(otherstats)
+        for k, v in pairs(otherstats.game) do
+            self.sum[k] = self.sum[k] + v
+            if self.high[k] < v then
+                self.high[k] = v
+            end
+        end
+    end
+
+    function stats:init_from_string(string)
+        for _, line in pairs(M.split(string, '\n')) do
+            local k, v = unpack(M.split(line, '='))
+            local firstkey, secondkey = unpack(M.split(k, '>'))
+            v = tonumber(v)
+            print(firstkey)
+            print(secondkey)
+            if self[firstkey] then
+                if secondkey then
+                    self[firstkey][secondkey] = v
+                end
+            end
+        end
+    end
+
+    function stats:tostring()
+        string = ''
+        for k, v in pairs(self.high) do
+            string = string .. 'high>' .. k .. '=' .. tostring(v) .. '\n'
+        end
+        for k, v in pairs(self.sum) do
+            string = string .. 'sum>' .. k .. '=' .. tostring(v) .. '\n'
+        end
+        return string
+    end
+
+    return stats
+end
+
+function M.loadHighScore(hsFile)
+    local stats = M.create_stats()
+    if love.filesystem.getInfo(hsFile, "file") then
+        local data, _ = love.filesystem.read(hsFile)
+        stats:init_from_string(data)
+        return stats
+    end
+    return stats
+end
+
+function M.writeHighScore(hsFile, stats)
+    love.filesystem.write(hsFile, stats:tostring())
+end
+
 return M

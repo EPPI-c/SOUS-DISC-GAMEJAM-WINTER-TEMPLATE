@@ -3,6 +3,7 @@ local helper = require 'helper'
 local M = {}
 
 ---@class Person
+---@field dead boolean
 ---@field coord Coord
 ---@field hitbox Hitbox
 ---@field maxspeed number
@@ -39,6 +40,7 @@ function M.create_Person(x, y, color, maxspeed, accel, decel)
     local width = 20
     local height = 20
     local person = {
+        dead = false,
         coord = coord,
         color = color,
         width = width,
@@ -61,6 +63,9 @@ function M.create_Person(x, y, color, maxspeed, accel, decel)
     }
     function person:draw()
         love.graphics.setColor(color)
+        if self.dead then
+            love.graphics.setColor(0,0,0)
+        end
         love.graphics.rectangle('fill', self.coord.x - self.width / 2, self.coord.y - self.height / 2, self.width,
             self.height)
     end
@@ -73,6 +78,9 @@ function M.create_Person(x, y, color, maxspeed, accel, decel)
 
     ---@diagnostic disable-next-line: redefined-local
     function person:change_x(x)
+        if self.dead then
+            return
+        end
         self.pastx = self.coord.x
         self.pasty = self.coord.y
         self.coord.x = x
@@ -82,6 +90,9 @@ function M.create_Person(x, y, color, maxspeed, accel, decel)
 
     ---@diagnostic disable-next-line: redefined-local
     function person:change_y(y)
+        if self.dead then
+            return
+        end
         self.pastx = self.coord.x
         self.pasty = self.coord.y
         self.coord.y = y
@@ -139,6 +150,7 @@ function M.create_Person(x, y, color, maxspeed, accel, decel)
         if self.dashTimer > 0 or self.dashCooldownTimer > 0 then
             return
         end
+        GameStats.game.dashed = GameStats.game.dashed + 1
         self.dashTimer = self.dashTime
         self.dashCooldownTimer = self.dashCooldown
         -- speed goes whooooa
@@ -151,6 +163,7 @@ function M.create_Person(x, y, color, maxspeed, accel, decel)
         if self.dashTimer > 0 or self.dashCooldownTimer > 0 then
             return
         end
+        GameStats.game.dashed = GameStats.game.dashed + 1
         self.dashTimer = self.dashTime
         self.dashCooldownTimer = self.dashCooldown
         -- speed goes whooooa
