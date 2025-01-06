@@ -12,6 +12,7 @@ function M:init(sm, Game_state)
         ui.createButton(20, 50, 50, 20, exit, love.event.quit, 2, 0.2),
     }
     Menu = ui.createKeyBoardNavigation(buttons)
+    Menu.selected = 1
 end
 
 ---for drawing stuff
@@ -20,9 +21,9 @@ function M:draw()
     love.graphics.rectangle("fill", 0, 0, 400, 800)
     Menu:draw()
     love.graphics.setColor(1, 1, 1)
-    love.graphics.print("HIGHSCORE: " .. tostring(Stats.high.score), 5, 5)
+    love.graphics.print("HIGHSCORE: " .. tostring(Stats.high.score), ScreenAreaWidth - 200, 5)
     if Stats.high.friendlyfire > 0 then
-        love.graphics.print("Friendly Fire: " .. tostring(Stats.high.friendlyfire), ScreenAreaWidth-100, 5)
+        love.graphics.print("FRIENDLY FIRE: " .. tostring(Stats.high.friendlyfire), ScreenAreaWidth - 200, 50)
     end
     love.graphics.print("Seed: " .. tostring(Seed), 5, ScreenAreaHeight - 50)
 end

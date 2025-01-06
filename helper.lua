@@ -136,4 +136,103 @@ function M.writeHighScore(hsFile, stats)
     love.filesystem.write(hsFile, stats:tostring())
 end
 
+local projectile_yellow = M.hex_to_rgb(0xFFEA00)
+
+function M.create_projectile(start, target)
+    local radius = 4
+    local p = {
+        coord = start,
+        radius = radius,
+        target = target,
+        maxspeed = 450,
+        xspeed = 0,
+        yspeed = 0,
+        hit = false,
+        missregistered = false,
+        accel = 1000,
+        explosiontimer = 0.3,
+        damage = 4,
+        timer = 3,
+        hitbox = M.create_hitbox(M.create_coord(start.x - radius, start.y - radius),
+            M.create_coord(start.x + radius, start.y + radius)),
+    }
+    function p:draw()
+        if self.timer <= 0 then
+            if self.explosiontimer > 0 then
+                love.graphics.setColor(1, 0, 0)
+                love.graphics.circle('fill', self.coord.x, self.coord.y, self.radius * 2)
+            end
+            return
+        end
+        love.graphics.setColor(projectile_yellow)
+        love.graphics.circle('fill', self.coord.x, self.coord.y, self.radius)
+    end
+
+    ---@diagnostic disable-next-line: redefined-local
+    function p.totalspeed(x, y)
+        return math.sqrt(x ^ 2 + y ^ 2)
+    end
+
+    function p:next_moves(dt, xdir, ydir)
+        self.timer = self.timer - dt
+        if self.timer < 0 then
+            if not self.hit and not self.missregistered then
+                GameStats.game.dodged = GameStats.game.dodged + 1
+                self.missregistered = true
+            end
+            self.explosiontimer = self.explosiontimer - dt
+            return {}
+        end
+
+        local ax = xdir * self.accel * dt
+        local ay = ydir * self.accel * dt
+        self.xspeed = self.xspeed + ax
+        self.yspeed = self.yspeed + ay
+        local s = self.totalspeed(self.xspeed, self.yspeed)
+        if s > self.maxspeed then
+            self.xspeed = self.xspeed * self.maxspeed / s
+            self.yspeed = self.yspeed * self.maxspeed / s
+        end
+
+        local deltax = self.xspeed * dt
+        local deltay = self.yspeed * dt
+        local steps = math.ceil(math.max(math.abs(deltax), math.abs(deltay)))
+        local moves = {}
+        for step = 1, steps do
+            ---@diagnostic disable-next-line: redefined-local
+            local x = self.coord.x + deltax / steps * step
+            ---@diagnostic disable-next-line: redefined-local
+            local y = self.coord.y + deltay / steps * step
+            table.insert(moves, M.create_coord(x, y))
+        end
+        return moves
+    end
+
+    ---@diagnostic disable-next-line: redefined-local
+    function p:change_coord(x, y)
+        self:change_x(x)
+        self:change_y(y)
+    end
+
+    ---@diagnostic disable-next-line: redefined-local
+    function p:change_x(x)
+        self.pastx = self.coord.x
+        self.pasty = self.coord.y
+        self.coord.x = x
+        self.hitbox.topLeft.x = x - self.radius
+        self.hitbox.bottomRight.x = x + self.radius
+    end
+
+    ---@diagnostic disable-next-line: redefined-local
+    function p:change_y(y)
+        self.pastx = self.coord.x
+        self.pasty = self.coord.y
+        self.coord.y = y
+        self.hitbox.topLeft.y = y - self.radius
+        self.hitbox.bottomRight.y = y + self.radius
+    end
+
+    return p
+end
+
 return M

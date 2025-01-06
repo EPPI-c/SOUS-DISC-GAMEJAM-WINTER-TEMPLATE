@@ -4,104 +4,6 @@ local helper = require 'helper'
 
 local game = {}
 
-local projectile_yellow = helper.hex_to_rgb(0xFFEA00)
-
-function game.create_projectile(start, target)
-    local radius = 4
-    local p = {
-        coord = start,
-        radius = radius,
-        target = target,
-        maxspeed = 400,
-        xspeed = 0,
-        yspeed = 0,
-        hit = false,
-        missregistered = false,
-        accel = 1000,
-        explosiontimer = 0.3,
-        damage = 4,
-        timer = 3,
-        hitbox = helper.create_hitbox(helper.create_coord(start.x - radius, start.y - radius),
-            helper.create_coord(start.x + radius, start.y + radius)),
-    }
-    function p:draw()
-        if self.timer <= 0 then
-            if self.explosiontimer > 0 then
-                love.graphics.setColor(1, 0, 0)
-                love.graphics.circle('fill', self.coord.x, self.coord.y, self.radius * 2)
-            end
-            return
-        end
-        love.graphics.setColor(projectile_yellow)
-        love.graphics.circle('fill', self.coord.x, self.coord.y, self.radius)
-    end
-
-    ---@diagnostic disable-next-line: redefined-local
-    function p.totalspeed(x, y)
-        return math.sqrt(x ^ 2 + y ^ 2)
-    end
-
-    function p:next_moves(dt, xdir, ydir)
-        self.timer = self.timer - dt
-        if self.timer < 0 then
-            if not self.hit and not self.missregistered then
-                GameStats.game.dodged = GameStats.game.dodged + 1
-                self.missregistered = true
-            end
-            self.explosiontimer = self.explosiontimer - dt
-            return {}
-        end
-
-        local ax = xdir * self.accel * dt
-        local ay = ydir * self.accel * dt
-        self.xspeed = self.xspeed + ax
-        self.yspeed = self.yspeed + ay
-        local s = self.totalspeed(self.xspeed, self.yspeed)
-        if s > self.maxspeed then
-            self.xspeed = self.xspeed * self.maxspeed / s
-            self.yspeed = self.yspeed * self.maxspeed / s
-        end
-
-        local deltax = self.xspeed * dt
-        local deltay = self.yspeed * dt
-        local steps = math.ceil(math.max(math.abs(deltax), math.abs(deltay)))
-        local moves = {}
-        for step = 1, steps do
-            ---@diagnostic disable-next-line: redefined-local
-            local x = self.coord.x + deltax / steps * step
-            ---@diagnostic disable-next-line: redefined-local
-            local y = self.coord.y + deltay / steps * step
-            table.insert(moves, helper.create_coord(x, y))
-        end
-        return moves
-    end
-
-    ---@diagnostic disable-next-line: redefined-local
-    function p:change_coord(x, y)
-        self:change_x(x)
-        self:change_y(y)
-    end
-
-    ---@diagnostic disable-next-line: redefined-local
-    function p:change_x(x)
-        self.pastx = self.coord.x
-        self.pasty = self.coord.y
-        self.coord.x = x
-        self.hitbox.topLeft.x = x - self.radius
-        self.hitbox.bottomRight.x = x + self.radius
-    end
-
-    ---@diagnostic disable-next-line: redefined-local
-    function p:change_y(y)
-        self.pastx = self.coord.x
-        self.pasty = self.coord.y
-        self.coord.y = y
-        self.hitbox.topLeft.y = y - self.radius
-        self.hitbox.bottomRight.y = y + self.radius
-    end
-
-    return p
-end
 
 function game:init(sm, menu)
     StateMachine = sm
@@ -110,8 +12,6 @@ function game:init(sm, menu)
     GameStats = helper.create_stats()
     Seed = os.time()
     Streets = streets.create_manager(400, 400, Seed)
-    Map = love.graphics.newImage('map.jpeg')
-    MapW, MapH = Map:getDimensions()
     Victim_vision = 200
 
     Player = person.create_Person(200, 200, { 0, 0, 1 }, 350, 2000, 0.2)
@@ -124,8 +24,10 @@ function game:init(sm, menu)
     Barcolor = { 0.3, 1, 0.3, 0.8 }
 
     MaxEnemySpeed = 350
+    EnemyisChasing = false
     EnemyStuckCounter = 0
-    EnemyAttack_range = 300
+    EnemyAttack_rangemin = 200
+    EnemyAttack_rangemax = 250
     EnemyAttack_cooldown = 1
     EnemyAttack_timer = 3
     EnemyAttackisLive = false
@@ -137,9 +39,6 @@ end
 function game:draw()
     love.graphics.push()
     love.graphics.translate(ScreenAreaWidth / 2 - Player.coord.x, ScreenAreaHeight / 2 - Player.coord.y)
-    -- -- Background
-    -- love.graphics.setColor(1, 1, 1)
-    -- love.graphics.draw(Map, -MapW / 2, -MapH / 2)
 
     Streets:draw()
 
@@ -161,9 +60,8 @@ function game:draw()
     love.graphics.rectangle("fill", 20, 20, Energy_width * Energy /
         EnergyMax, 20)
     love.graphics.setColor(1, 0.3, 0.3, 0.7)
-    love.graphics.print(tostring(love.timer.getFPS()), 5, 5)
-    love.graphics.print(tostring(GameStats.game.score), ScreenAreaWidth - 20, 5)
-    love.graphics.print(tostring(GameStats.game.dodged), ScreenAreaWidth - 20, ScreenAreaHeight - 200)
+    love.graphics.print('FPS: ' .. tostring(love.timer.getFPS()), 5, 5)
+    love.graphics.print('Score: ' .. tostring(GameStats.game.score), ScreenAreaWidth - 110, 5)
     if GameStats.game.friendlyfire > 0 then
         love.graphics.print('FRIENDLY FIRE: ' .. tostring(GameStats.game.friendlyfire), ScreenAreaWidth - 200, 50)
     end
@@ -222,7 +120,7 @@ end
 function game:enemyshoot(dt)
     EnemyAttack_timer = EnemyAttack_timer - dt
     if Enemy.coord:distance(Player.coord) > Attack_range and EnemyAttack_timer <= 0 then
-        local projectile = game.create_projectile(helper.create_coord(Enemy.coord.x, Enemy.coord.y), Player)
+        local projectile = helper.create_projectile(helper.create_coord(Enemy.coord.x, Enemy.coord.y), Player)
         table.insert(EnemyAttacks, projectile)
         EnemyAttack_timer = EnemyAttack_cooldown
     end
@@ -236,10 +134,11 @@ function game:attack_movements(dt)
             if Streets:check_collisions(attack.hitbox) then
                 attack.timer = 0
             end
-            for _, victim in pairs(Streets.victims) do
-                if victim.hitbox:check_collision(attack.hitbox) and not victim.dead then
+            for k, victim in pairs(Streets.victims.collision) do
+                if victim.hitbox:check_collision(attack.hitbox) then
                     attack.timer = 0
                     victim.dead = true
+                    table.remove(Streets.victims.collision, k)
                     GameStats.game.friendlyfire = GameStats.game.friendlyfire + 1
                 end
             end
@@ -255,6 +154,7 @@ end
 
 function game:enemy_movement(dt)
     local xdir, ydir = self:getDirections(Enemy.coord, Player.coord)
+    local Enemydist = Enemy.coord:distance(Player.coord)
     Enemy:accelerate(dt, xdir, ydir)
     local screen_hitbox = helper.create_hitbox(
         helper.create_coord(Player.coord.x - ScreenAreaWidth / 2, Player.coord.y - ScreenAreaHeight / 2),
@@ -268,20 +168,26 @@ function game:enemy_movement(dt)
                 Enemy:change_coord(move.x, move.y)
             end
         end
-    elseif Enemy.coord:distance(Player.coord) > Victim_vision then
-        EnemyStuckCounter = 0
-        Enemy.maxspeed = MaxEnemySpeed
-        Enemy:accelerate(dt, xdir, ydir)
-        local moves = Enemy:next_moves(dt)
-        for _, move in pairs(moves) do
-            Enemy:change_x(move.x)
-            if Streets:check_collisions(Enemy.hitbox) then
-                Enemy:rollback()
+    elseif Enemydist > EnemyAttack_rangemin then
+        if EnemyisChasing or Enemydist > EnemyAttack_rangemax then
+            EnemyisChasing = true
+            EnemyStuckCounter = 0
+            Enemy.maxspeed = MaxEnemySpeed
+            Enemy:accelerate(dt, xdir, ydir)
+            local moves = Enemy:next_moves(dt)
+            for _, move in pairs(moves) do
+                Enemy:change_x(move.x)
+                if Streets:check_collisions(Enemy.hitbox) then
+                    Enemy:rollback()
+                end
+                Enemy:change_y(move.y)
+                if Streets:check_collisions(Enemy.hitbox) then
+                    Enemy:rollback()
+                end
             end
-            Enemy:change_y(move.y)
-            if Streets:check_collisions(Enemy.hitbox) then
-                Enemy:rollback()
-            end
+        end
+        if Enemydist - 10 <= EnemyAttack_rangemin then
+            EnemyisChasing = false
         end
     end
 end
@@ -322,7 +228,7 @@ end
 function game:update(dt)
     Streets:update(Player.coord.x, Player.coord.y)
     self:player_movement(dt)
-    for _, victim in pairs(Streets.victims) do
+    for _, victim in pairs(Streets.victims.collision) do
         self:victim_movement(dt, victim)
     end
     self:enemy_movement(dt)
@@ -394,11 +300,12 @@ function game:dash(key, isrepeat)
 end
 
 function game:attack()
-    for _, victim in pairs(Streets.victims) do
+    for k, victim in pairs(Streets.victims.collision) do
         if victim.coord:distance(Player.coord) < Attack_range then
             if not victim.dead then
                 Energy = EnergyMax
                 victim.dead = true
+                table.remove(Streets.victims.collision, k)
                 GameStats.game.score = GameStats.game.score + 1
             end
         end

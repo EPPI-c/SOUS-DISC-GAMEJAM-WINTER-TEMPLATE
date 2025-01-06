@@ -6,6 +6,8 @@ local helper = require('helper')
 function love.load()
     HsFile = "highscore.txt"
     Stats = helper.loadHighScore(HsFile)
+    Font = love.graphics.newFont(20)
+    love.graphics.setFont(Font)
 
     ScreenAreaWidth = love.graphics.getWidth()
     ScreenAreaHeight = love.graphics.getHeight()

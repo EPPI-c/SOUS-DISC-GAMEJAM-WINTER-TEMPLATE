@@ -1096,7 +1096,10 @@ function streets.create_manager(width, height, seed)
         width = width,
         height = height,
         streets = streets_table,
-        victims = {},
+        victims = {
+            draw = {},
+            collision = {},
+        },
         pieces = {
             streets.create_Tintersection_down,
             streets.create_Tintersection_left,
@@ -1122,7 +1125,8 @@ function streets.create_manager(width, height, seed)
         self.streets[x][y] = street
         if math.random(4) == 1 then
             local victim = person.create_Person(x + self.width / 2, y + self.height / 2, { 1, .3, .3 }, 200, 2000, 0.2)
-            table.insert(self.victims, victim)
+            table.insert(self.victims.draw, victim)
+            table.insert(self.victims.collision, victim)
         end
     end
 
@@ -1264,7 +1268,7 @@ function streets.create_manager(width, height, seed)
         local x, y = self:getStreet(hitbox.topLeft.x, hitbox.topLeft.y)
         local x1, y1 = self:getStreet(hitbox.bottomRight.x, hitbox.bottomRight.y)
         if x ~= x1 or y ~= y1 then
-            if self:access(x, y) then
+            if self:access(x1, y1) then
                 if self.streets[x1][y1]:check_collision(hitbox) then
                     return true
                 end
@@ -1288,7 +1292,7 @@ function streets.create_manager(width, height, seed)
                 end
             end
         end
-        for _, victim in pairs(self.victims) do
+        for _, victim in pairs(self.victims.draw) do
             victim:draw()
         end
     end

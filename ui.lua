@@ -3,13 +3,15 @@ local ui = {}
 function ui.createButtonDraw(text, textcolor, normalcolor, selectedcolor, clickedcolor)
     return function(x, y, xs, ys, state)
 	local color
-	if state == 'selected' then
-	    color = selectedcolor
-	elseif state == 'clicked' then
+	if state == 'clicked' then
 	    color = clickedcolor
 	else
 	    color = normalcolor
 	end
+	if state == 'selected' then
+        love.graphics.setColor(selectedcolor)
+        love.graphics.rectangle('fill', x+4, y+4, xs, ys)
+    end
 	love.graphics.setColor(color)
         love.graphics.rectangle('fill', x, y, xs, ys)
 
