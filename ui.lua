@@ -1,22 +1,45 @@
+local helper = require 'helper'
 local ui = {}
+Previous_selected = 1
 
 function ui.createButtonDraw(text, textcolor, normalcolor, selectedcolor, clickedcolor)
     return function(x, y, xs, ys, state)
-	local color
-	if state == 'clicked' then
-	    color = clickedcolor
-	else
-	    color = normalcolor
-	end
-	if state == 'selected' then
-        love.graphics.setColor(selectedcolor)
-        love.graphics.rectangle('fill', x+4, y+4, xs, ys)
-    end
-	love.graphics.setColor(color)
+        local color
+        if state == 'clicked' then
+            color = clickedcolor
+        else
+            color = normalcolor
+        end
+        if state == 'selected' then
+            love.graphics.setColor(selectedcolor)
+            love.graphics.rectangle('fill', x + 4, y + 4, xs, ys)
+        end
+        love.graphics.setColor(color)
         love.graphics.rectangle('fill', x, y, xs, ys)
 
-	love.graphics.setColor(textcolor)
-	love.graphics.printf(text, x, y, xs, 'center')
+        love.graphics.setColor(textcolor)
+        love.graphics.printf(text, x, y, xs, 'center')
+    end
+end
+
+function ui.createSliderDraw(text, textcolor, normalcolor, selectedcolor, clickedcolor, slidercolor)
+    return function(x, y, xs, ys, state, value, active)
+        local color
+        if not active then
+            color = { 0.1, 0.1, 0.1, 0.6 }
+        else
+            color = slidercolor
+        end
+        if state == 'selected' then
+            love.graphics.setColor(selectedcolor)
+            love.graphics.rectangle('fill', x + 4, y + 4, xs, ys)
+        end
+        love.graphics.setColor(normalcolor)
+        love.graphics.rectangle('fill', x, y, xs, ys)
+        love.graphics.setColor(textcolor)
+        love.graphics.printf(text, x, y, xs, 'center')
+        love.graphics.setColor(color)
+        love.graphics.rectangle('fill', x + 2, y + 2, (xs - 4) * value, ys - 4)
     end
 end
 
@@ -30,6 +53,7 @@ end
 ---@field checkHit function checks if coordinates are in hitbox
 ---@field update function called to manage state receives (x, y, dt)
 ---@field click function executes the onclicked function
+---@field key function executes the onclicked function
 
 ---@param xp number position x of hitbox
 ---@param yp number position y of hitbox
@@ -59,6 +83,7 @@ function ui.createButton(xp, yp, xs, ys, drawfunction, onclicked, position, clic
 
     ---executes the onclicked function
     function button:click()
+        Soundfx.click.sound:play()
         self.state = 'clicked'
         self.clicked_timer = self.click_time
         onclicked()
@@ -99,6 +124,9 @@ function ui.createButton(xp, yp, xs, ys, drawfunction, onclicked, position, clic
     ---@return boolean
     ---use this function to to check if the some coordinate is inside the button
     function button:checkHit(x, y)
+        if not x or not y then
+            return false
+        end
         if x > self.x and x < self.x + self.xs and y > self.y and y < self.y + self.ys then
             return true
         end
@@ -136,6 +164,58 @@ function table.search(t, value, equal_func)
     end
 end
 
+function ui.createSlider(xp, yp, xs, ys, drawfunction, onclicked, crease_time, position, click_time, step, initial)
+    if not step then
+        step = 0.1
+    end
+    if not initial then
+        initial = 0.5
+    end
+
+    ---@class Slider:button
+    local slider = ui.createButton(xp, yp, xs, ys, drawfunction, onclicked, position, click_time)
+    slider.value = initial
+    slider.step = step
+    slider.active = true
+    function slider:increase()
+        if self.value < 1 then
+            self.value = helper.round(self.value + self.step, 3)
+            crease_time(self.value)
+        end
+    end
+
+    function slider:decrease()
+        if self.value > 0 then
+            self.value = helper.round(self.value - self.step, 3)
+            crease_time(self.value)
+        end
+    end
+
+    ---draws the button
+    function slider:draw()
+        drawfunction(self.x, self.y, self.xs, self.ys, self.state, self.value, self.active)
+    end
+
+    ---executes the onclicked function
+    function slider:click()
+        Soundfx.click.sound:play()
+        self.state = 'clicked'
+        self.clicked_timer = self.click_time
+        self.active = not self.active
+        onclicked(self.active, self.value)
+    end
+
+    function slider:key(key, _)
+        if key == 'right' or key == 'up' or key == 'l' then
+            slider:increase()
+        elseif key == 'left' or key == 'down' or key == 'h' then
+            slider:decrease()
+        end
+    end
+
+    return slider
+end
+
 ---Creates KeyboardNavigator which allows to easily implement keyboard navigation
 ---@param items Navigatable[]|nil
 function ui.createKeyBoardNavigation(items)
@@ -158,6 +238,7 @@ function ui.createKeyBoardNavigation(items)
         itemsy = itemsy,
         selected = nil,
     }
+
     function KeyboardNavigator:draw()
         for _, button in ipairs(self.items) do
             button:draw()
@@ -173,6 +254,10 @@ function ui.createKeyBoardNavigation(items)
     end
 
     function KeyboardNavigator:update(dt)
+        if self.selected ~= Previous_selected then
+            Previous_selected = self.selected
+            Soundfx.select.sound:play()
+        end
         for k, button in pairs(self.items) do
             button:update(dt)
             if button.state ~= 'clicked' then
@@ -197,7 +282,16 @@ function ui.createKeyBoardNavigation(items)
                 self.selected = 1
             end
             local c = self:current()
-	    c:click()
+            c:click()
+        end
+        if #self.items == 0 then
+            return nil
+        elseif not self.selected then
+            self.selected = 1
+        end
+        local cur = self:current()
+        if cur.key then
+            cur:key(key, isrepeat)
         end
     end
 
@@ -383,25 +477,4 @@ function ui.createKeyBoardNavigation(items)
     return KeyboardNavigator
 end
 
--- local button = ui.createButton(5,1,1,1,function () end,function()end,10,false)
--- local button1 = ui.createButton(4,2,1,1,function () end,function()end,20,false)
--- local button2 = ui.createButton(3,3,1,1,function () end,function()end,50,false)
--- local button3 = ui.createButton(2,4,1,1,function () end,function()end,40,false)
--- local button4 = ui.createButton(1,5,1,1,function () end,function()end,30,false)
-
--- local navigator = ui.createKeyBoardNavigation({button, button2, button3, button4})
--- for _, v in pairs(navigator.items) do
--- 	print(v.position)
--- end
--- print()
--- navigator:add(button1)
--- for _, v in pairs(navigator.items) do
--- 	print(v.position)
--- end
--- print()
--- navigator:remove(button1)
--- for _, v in pairs(navigator.items) do
--- 	print(v.position)
--- end
---
 return ui

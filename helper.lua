@@ -16,6 +16,12 @@ function M.create_coord(x, y)
     return coord
 end
 
+function M.generate_linear_function(x1, y1, x2, y2)
+    local a = (y2 - y1) / (x2 - x1)
+    local b = y1 - a * x1
+    return function(x) return a * x + b end
+end
+
 function M.hex_to_rgb(rgb)
     -- clamp between 0x000000 and 0xffffff
     rgb = rgb % 0x1000000 -- 0xffffff + 1
@@ -73,7 +79,7 @@ function M.split(s, delimiter)
 end
 
 function M.create_stats()
-    local types = {'score', 'friendlyfire', 'dodged', 'dashed', 'shot', 'secondsalive', 'deaths'}
+    local types = { 'score', 'friendlyfire', 'dodged', 'dashed', 'shot', 'secondsalive', 'deaths', 'deathmessageindex' }
     local stats = {
         game = {},
         high = {},
@@ -98,8 +104,6 @@ function M.create_stats()
             local k, v = unpack(M.split(line, '='))
             local firstkey, secondkey = unpack(M.split(k, '>'))
             v = tonumber(v)
-            print(firstkey)
-            print(secondkey)
             if self[firstkey] then
                 if secondkey then
                     self[firstkey][secondkey] = v
@@ -137,6 +141,7 @@ function M.writeHighScore(hsFile, stats)
 end
 
 local projectile_yellow = M.hex_to_rgb(0xFFEA00)
+local superpurple = M.hex_to_rgb(0xff20ff)
 
 function M.create_projectile(start, target)
     local radius = 4
@@ -156,7 +161,7 @@ function M.create_projectile(start, target)
         hitbox = M.create_hitbox(M.create_coord(start.x - radius, start.y - radius),
             M.create_coord(start.x + radius, start.y + radius)),
     }
-    function p:draw()
+    function p:draw(energy)
         if self.timer <= 0 then
             if self.explosiontimer > 0 then
                 love.graphics.setColor(1, 0, 0)
@@ -164,7 +169,11 @@ function M.create_projectile(start, target)
             end
             return
         end
-        love.graphics.setColor(projectile_yellow)
+        if energy > self.damage * 3 then
+            love.graphics.setColor(superpurple)
+        else
+            love.graphics.setColor(projectile_yellow)
+        end
         love.graphics.circle('fill', self.coord.x, self.coord.y, self.radius)
     end
 
@@ -176,9 +185,12 @@ function M.create_projectile(start, target)
     function p:next_moves(dt, xdir, ydir)
         self.timer = self.timer - dt
         if self.timer < 0 then
-            if not self.hit and not self.missregistered then
-                GameStats.game.dodged = GameStats.game.dodged + 1
+            if not self.missregistered then
+                Soundfx.explosion.sound:play()
                 self.missregistered = true
+                if not self.hit then
+                    GameStats.game.dodged = GameStats.game.dodged + 1
+                end
             end
             self.explosiontimer = self.explosiontimer - dt
             return {}
@@ -233,6 +245,60 @@ function M.create_projectile(start, target)
     end
 
     return p
+end
+
+-- see if the file exists
+function M.file_exists(file)
+    local f = io.open(file, "rb")
+    if f then f:close() end
+    return f ~= nil
+end
+
+-- get all lines from a file, returns an empty
+-- list/table if the file does not exist
+function M.lines_from(file)
+    if not M.file_exists(file) then return {} end
+    local lines = {}
+    for line in io.lines(file) do
+        lines[#lines + 1] = line
+    end
+    return lines
+end
+
+function M.shallow_copy(t)
+  local t2 = {}
+  for k,v in pairs(t) do
+    t2[k] = v
+  end
+  return t2
+end
+
+---creates a list of centered spaced coords in a rectangle
+---@return table
+---@param upperLeft Coord
+---@param bottomRight Coord
+---@param items number number of coords
+---@param horizontal boolean
+function M.center_coords(upperLeft, bottomRight, items, horizontal)
+    local dir = 'y'
+    if horizontal then
+        horizontal = false
+        dir = 'x'
+    end
+    local space = bottomRight[dir] - upperLeft[dir]
+    local spacer = space / items / 2
+    local occupation = spacer + spacer * items / 2
+    local position = space / 2 - occupation
+    local positions = {}
+    local x = bottomRight.x/2
+    local y = bottomRight.y/2
+    for i=1,items do
+        local c = M.create_coord(x, y)
+        c[dir] = position + spacer * i
+        table.insert(positions, c)
+    end
+
+    return positions
 end
 
 return M

@@ -4,11 +4,13 @@ local M = {}
 
 ---@class Person
 ---@field dead boolean
+---@field outline boolean
 ---@field coord Coord
 ---@field hitbox Hitbox
 ---@field maxspeed number
 ---@field speed number
 ---@field xspeed number
+---@field front boolean
 ---@field yspeed number
 ---@field accel number
 ---@field decel number
@@ -23,6 +25,7 @@ local M = {}
 ---@field accelerate function (dt, x, y)
 ---@field next_moves function (dt)
 ---@field dashTime number
+---@field dashTimer number
 ---@field dashPower number
 ---@field dashCooldown number
 ---@field dashX function (dir)
@@ -35,7 +38,9 @@ local M = {}
 ---@param accel number
 ---@param decel number
 ---@return Person
-function M.create_Person(x, y, color, maxspeed, accel, decel)
+function M.create_Person(x, y, color, maxspeed, accel, decel, dashcolor, afterdash)
+    if not dashcolor then dashcolor = color end
+    if not afterdash then afterdash = color end
     local coord = helper.create_coord(x, y)
     local width = 20
     local height = 20
@@ -43,8 +48,13 @@ function M.create_Person(x, y, color, maxspeed, accel, decel)
         dead = false,
         coord = coord,
         color = color,
+        dashcolor = dashcolor,
+        afterdash = afterdash,
+        activecolor = color,
         width = width,
         height = height,
+        outline = false,
+        front = true,
         speed = 0,
         xspeed = 0,
         yspeed = 0,
@@ -62,9 +72,9 @@ function M.create_Person(x, y, color, maxspeed, accel, decel)
             helper.create_coord(coord.x + width / 2, coord.y + height / 2)),
     }
     function person:draw()
-        love.graphics.setColor(color)
+        love.graphics.setColor(self.activecolor)
         if self.dead then
-            love.graphics.setColor(0,0,0)
+            love.graphics.setColor(0, 0, 0)
         end
         love.graphics.rectangle('fill', self.coord.x - self.width / 2, self.coord.y - self.height / 2, self.width,
             self.height)
@@ -115,7 +125,15 @@ function M.create_Person(x, y, color, maxspeed, accel, decel)
             return
         end
         if self.dashCooldownTimer > 0 then
+            self.activecolor = self.afterdash
             self.dashCooldownTimer = self.dashCooldownTimer - dt
+        else
+            self.activecolor = self.color
+        end
+        if y > 0 then
+            self.front = true
+        elseif y < 0 then
+            self.front = false
         end
 
         local ax = x * self.accel * dt
@@ -150,6 +168,8 @@ function M.create_Person(x, y, color, maxspeed, accel, decel)
         if self.dashTimer > 0 or self.dashCooldownTimer > 0 then
             return
         end
+        self.activecolor = self.dashcolor
+        Soundfx.dash.sound:play()
         GameStats.game.dashed = GameStats.game.dashed + 1
         self.dashTimer = self.dashTime
         self.dashCooldownTimer = self.dashCooldown
@@ -163,6 +183,8 @@ function M.create_Person(x, y, color, maxspeed, accel, decel)
         if self.dashTimer > 0 or self.dashCooldownTimer > 0 then
             return
         end
+        self.activecolor = self.dashcolor
+        Soundfx.dash.sound:play()
         GameStats.game.dashed = GameStats.game.dashed + 1
         self.dashTimer = self.dashTime
         self.dashCooldownTimer = self.dashCooldown
@@ -184,6 +206,38 @@ function M.create_Person(x, y, color, maxspeed, accel, decel)
             table.insert(moves, helper.create_coord(x, y))
         end
         return moves
+    end
+
+    return person
+end
+
+function M.createImagePerson(imagefront, imageback, x, y, color, maxspeed, accel, decel, dashcolor, afterdash, outfront, outback)
+    if not outfront then
+        outfront = imagefront
+    end
+    if not outback then
+        outback = imageback
+    end
+    local w, h = imagefront:getDimensions()
+    local wo, ho = outfront:getDimensions()
+    local person = M.create_Person(x, y, color, maxspeed, accel, decel, dashcolor, afterdash)
+    function person:draw()
+        love.graphics.setColor(self.activecolor)
+        if self.dead then
+            love.graphics.setColor(0, 0, 0)
+        end
+        local image, out
+        if self.front then
+            image = imagefront
+            out = outfront
+        else
+            image = imageback
+            out = outback
+        end
+        if self.outline and not self.dead then
+            love.graphics.draw(out, self.coord.x, self.coord.y, nil, nil,nil, wo/2, (ho-self.height) + self.height/2 - (ho-h)/2)
+        end
+        love.graphics.draw(image, self.coord.x, self.coord.y, nil, nil, nil, w / 2, (h-self.height)+self.height/2)
     end
 
     return person

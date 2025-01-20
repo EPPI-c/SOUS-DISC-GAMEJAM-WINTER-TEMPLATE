@@ -1086,12 +1086,13 @@ function streets.create_Tintersection_down(x, y, width, height)
 end
 
 ---@diagnostic disable-next-line: unused-local
-function streets.create_manager(width, height, seed)
+function streets.create_manager(width, height, seed, victim1front, victim1back, outlinefront1, outlineback1, victim2front, victim2back, outline2)
     -- store steets with locations
     local streets_table = {}
     streets_table[0] = {}
     local street = streets.create_intersection(0, 0, width, height)
     streets_table[0][0] = street
+    local victim_luck = helper.generate_linear_function(0, 1, EnergyMax, 5)
     local M = {
         width = width,
         height = height,
@@ -1123,11 +1124,6 @@ function streets.create_manager(width, height, seed)
             return
         end
         self.streets[x][y] = street
-        if math.random(4) == 1 then
-            local victim = person.create_Person(x + self.width / 2, y + self.height / 2, { 1, .3, .3 }, 200, 2000, 0.2)
-            table.insert(self.victims.draw, victim)
-            table.insert(self.victims.collision, victim)
-        end
     end
 
     function M:access(x, y)
@@ -1160,6 +1156,7 @@ function streets.create_manager(width, height, seed)
             if not self:access(i, j) then
                 ---@diagnostic disable-next-line: redefined-local
                 local street = street.piecesdown[math.random(optionsDown)](i, j, self.width, self.height)
+                street.lucked = false
                 self:add_street(i, j, street)
                 self:generate(i, j)
             end
@@ -1289,6 +1286,34 @@ function streets.create_manager(width, height, seed)
             for j = self.moderateUStreet, self.moderateDStreet, self.height do
                 if self:access(i, j) then
                     self.streets[i][j]:draw()
+                    if not self.streets[i][j].lucked then
+                        self.streets[i][j].lucked = true
+                        local chance
+                        if Energy > EnergyMax then
+                            chance = 5
+                        else
+                            chance = math.floor(victim_luck(Energy))
+                        end
+                        if math.random(chance) == 1 then
+                            local victimimagefront, victimimageback, outfront, outback
+                            if math.random(1,2) == 1 then
+                                victimimagefront = victim1front
+                                victimimageback = victim1back
+                                outfront = outlinefront1
+                                outback = outlineback1
+                            else
+                                victimimagefront = victim2front
+                                victimimageback = victim2back
+                                outfront = outline2
+                                outback = outline2
+                            end
+                            print(victim1front, victim2front)
+                            local victim = person.createImagePerson(victimimagefront, victimimageback, i + self.width / 2, j + self.height / 2,
+                                { 1, 1, 1 }, 200, 2000, 0.2,nil, nil, outfront, outback)
+                            table.insert(self.victims.draw, victim)
+                            table.insert(self.victims.collision, victim)
+                        end
+                    end
                 end
             end
         end
