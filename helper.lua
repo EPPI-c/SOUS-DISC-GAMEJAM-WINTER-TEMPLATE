@@ -47,6 +47,7 @@ end
 ---@field bottomRight Coord
 ---@field check_collision function
 
+-- creates a hitbox object which comes with collision detection out of the box
 ---@param coord1 Coord
 ---@param coord2 Coord
 ---@return Hitbox
@@ -57,7 +58,12 @@ function M.create_hitbox(coord1, coord2)
     }
     ---@param other_hitbox Hitbox
     function hitbox:check_collision(other_hitbox)
-        if other_hitbox.bottomRight.x < self.topLeft.x or other_hitbox.bottomRight.y < self.topLeft.y or other_hitbox.topLeft.x > self.bottomRight.x or other_hitbox.topLeft.y > self.bottomRight.y then
+        -- it uses the most simple algorithm ever, which works fine if you only use square hitboxes
+        if other_hitbox.bottomRight.x < self.topLeft.x
+            or other_hitbox.bottomRight.y < self.topLeft.y
+            or other_hitbox.topLeft.x > self.bottomRight.x
+            or other_hitbox.topLeft.y > self.bottomRight.y
+        then
             return false
         else
             return true
@@ -67,6 +73,7 @@ function M.create_hitbox(coord1, coord2)
     return hitbox
 end
 
+-- split string on delimiter
 function M.split(s, delimiter)
     delimiter = delimiter or '%s'
     local t = {}
@@ -79,7 +86,7 @@ function M.split(s, delimiter)
 end
 
 function M.create_stats()
-    local types = { 'score', 'friendlyfire', 'dodged', 'dashed', 'shot', 'secondsalive', 'deaths', 'deathmessageindex' }
+    local types = { 'score', 'secondsalive', 'deaths' }
     local stats = {
         game = {},
         high = {},
@@ -140,113 +147,6 @@ function M.writeHighScore(hsFile, stats)
     love.filesystem.write(hsFile, stats:tostring())
 end
 
-local projectile_yellow = M.hex_to_rgb(0xFFEA00)
-local superpurple = M.hex_to_rgb(0xff20ff)
-
-function M.create_projectile(start, target)
-    local radius = 4
-    local p = {
-        coord = start,
-        radius = radius,
-        target = target,
-        maxspeed = 450,
-        xspeed = 0,
-        yspeed = 0,
-        hit = false,
-        missregistered = false,
-        accel = 1000,
-        explosiontimer = 0.3,
-        damage = 4,
-        timer = 3,
-        hitbox = M.create_hitbox(M.create_coord(start.x - radius, start.y - radius),
-            M.create_coord(start.x + radius, start.y + radius)),
-    }
-    function p:draw(energy)
-        if self.timer <= 0 then
-            if self.explosiontimer > 0 then
-                love.graphics.setColor(1, 0, 0)
-                love.graphics.circle('fill', self.coord.x, self.coord.y, self.radius * 2)
-            end
-            return
-        end
-        if energy > self.damage * 3 then
-            love.graphics.setColor(superpurple)
-        else
-            love.graphics.setColor(projectile_yellow)
-        end
-        love.graphics.circle('fill', self.coord.x, self.coord.y, self.radius)
-    end
-
-    ---@diagnostic disable-next-line: redefined-local
-    function p.totalspeed(x, y)
-        return math.sqrt(x ^ 2 + y ^ 2)
-    end
-
-    function p:next_moves(dt, xdir, ydir)
-        self.timer = self.timer - dt
-        if self.timer < 0 then
-            if not self.missregistered then
-                Soundfx.explosion.sound:play()
-                self.missregistered = true
-                if not self.hit then
-                    GameStats.game.dodged = GameStats.game.dodged + 1
-                end
-            end
-            self.explosiontimer = self.explosiontimer - dt
-            return {}
-        end
-
-        local ax = xdir * self.accel * dt
-        local ay = ydir * self.accel * dt
-        self.xspeed = self.xspeed + ax
-        self.yspeed = self.yspeed + ay
-        local s = self.totalspeed(self.xspeed, self.yspeed)
-        if s > self.maxspeed then
-            self.xspeed = self.xspeed * self.maxspeed / s
-            self.yspeed = self.yspeed * self.maxspeed / s
-        end
-
-        local deltax = self.xspeed * dt
-        local deltay = self.yspeed * dt
-        local steps = math.ceil(math.max(math.abs(deltax), math.abs(deltay)))
-        local moves = {}
-        for step = 1, steps do
-            ---@diagnostic disable-next-line: redefined-local
-            local x = self.coord.x + deltax / steps * step
-            ---@diagnostic disable-next-line: redefined-local
-            local y = self.coord.y + deltay / steps * step
-            table.insert(moves, M.create_coord(x, y))
-        end
-        return moves
-    end
-
-    ---@diagnostic disable-next-line: redefined-local
-    function p:change_coord(x, y)
-        self:change_x(x)
-        self:change_y(y)
-    end
-
-    ---@diagnostic disable-next-line: redefined-local
-    function p:change_x(x)
-        self.pastx = self.coord.x
-        self.pasty = self.coord.y
-        self.coord.x = x
-        self.hitbox.topLeft.x = x - self.radius
-        self.hitbox.bottomRight.x = x + self.radius
-    end
-
-    ---@diagnostic disable-next-line: redefined-local
-    function p:change_y(y)
-        self.pastx = self.coord.x
-        self.pasty = self.coord.y
-        self.coord.y = y
-        self.hitbox.topLeft.y = y - self.radius
-        self.hitbox.bottomRight.y = y + self.radius
-    end
-
-    return p
-end
-
 -- see if the file exists
 function M.file_exists(file)
     local f = io.open(file, "rb")
@@ -265,15 +165,16 @@ function M.lines_from(file)
     return lines
 end
 
+-- shallow copy a table
 function M.shallow_copy(t)
-  local t2 = {}
-  for k,v in pairs(t) do
-    t2[k] = v
-  end
-  return t2
+    local t2 = {}
+    for k, v in pairs(t) do
+        t2[k] = v
+    end
+    return t2
 end
 
----creates a list of centered spaced coords in a rectangle
+---creates a list of centered spaced coords in a rectangle this is useful for ui stuff
 ---@return table
 ---@param upperLeft Coord
 ---@param bottomRight Coord
@@ -290,9 +191,9 @@ function M.center_coords(upperLeft, bottomRight, items, horizontal)
     local occupation = spacer + spacer * items / 2
     local position = space / 2 - occupation
     local positions = {}
-    local x = bottomRight.x/2
-    local y = bottomRight.y/2
-    for i=1,items do
+    local x = bottomRight.x / 2
+    local y = bottomRight.y / 2
+    for i = 1, items do
         local c = M.create_coord(x, y)
         c[dir] = position + spacer * i
         table.insert(positions, c)

@@ -1,0 +1,10 @@
+{
+    "diagnostics.disable": [
+        "deprecated"
+    ],
+    "workspace": {
+        "ignoreDir": [
+            "build-stuff/"
+        ]
+    }
+}

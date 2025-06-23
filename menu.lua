@@ -22,18 +22,12 @@ function M:draw_stats()
     local stats = {
         {'HIGHSCORE', Stats.high.score},
         {'TOTALSCORE', Stats.high.score},
-        {'DODGED', Stats.sum.dodged},
         {'DEATHS', Stats.sum.deaths},
         {'SECONDSALIVE', Stats.sum.secondsalive},
-        {'DASHED', Stats.sum.dashed},
-        {'SHOT', Stats.sum.shot},
     }
     love.graphics.setColor(1, 1, 1)
     local x = ScreenAreaWidth / 2 + 20
     local offset_y = 50
-    if Stats.high.friendlyfire > 0 then
-        love.graphics.print("FRIENDLYFIRE: " .. tostring(Stats.sum.friendlyfire), x, offset_y)
-    end
     for k, v in pairs(stats) do
         love.graphics.print(v[1] .. ': ' .. tostring(v[2]), x, offset_y * (k + 1))
     end

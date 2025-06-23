@@ -206,9 +206,9 @@ function ui.createSlider(xp, yp, xs, ys, drawfunction, onclicked, crease_time, p
     end
 
     function slider:key(key, _)
-        if key == 'right' or key == 'up' or key == 'l' then
+        if key == 'right' or key == 'l' then
             slider:increase()
-        elseif key == 'left' or key == 'down' or key == 'h' then
+        elseif key == 'left' or key == 'h' then
             slider:decrease()
         end
     end
@@ -271,9 +271,9 @@ function ui.createKeyBoardNavigation(items)
     end
 
     function KeyboardNavigator:key(key, isrepeat)
-        if (key == 'down' or key == 'right' or key == 'j') and not isrepeat then
+        if (key == 'down' or key == 'j') and not isrepeat then
             self:next()
-        elseif (key == 'up' or key == 'left' or key == 'k') and not isrepeat then
+        elseif (key == 'up' or key == 'k') and not isrepeat then
             self:previous()
         elseif key == 'space' and not isrepeat then
             if #self.items == 0 then
@@ -475,6 +475,38 @@ function ui.createKeyBoardNavigation(items)
 
     KeyboardNavigator:sort()
     return KeyboardNavigator
+end
+
+
+function ui.createKeyBoardNavigationHorizontal(items)
+    ---@class KeyboardNavigatorHorizonontal:KeyboardNavigator
+    local navigator = ui.createKeyBoardNavigation(items)
+    function navigator:key(key, isrepeat)
+        print('in horiziontal')
+        if (key == 'left' or key == 'j') and not isrepeat then
+            self:next()
+        elseif (key == 'right' or key == 'k') and not isrepeat then
+            self:previous()
+        elseif key == 'space' and not isrepeat then
+            if #self.items == 0 then
+                return nil
+            elseif not self.selected then
+                self.selected = 1
+            end
+            local c = self:current()
+            c:click()
+        end
+        if #self.items == 0 then
+            return nil
+        elseif not self.selected then
+            self.selected = 1
+        end
+        local cur = self:current()
+        if cur.key then
+            cur:key(key, isrepeat)
+        end
+    end
+    return navigator
 end
 
 return ui
